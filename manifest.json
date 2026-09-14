@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "Grammateus",
+  "version": "0.1.0",
+  "description": "Extracts and downloads YouTube video transcripts.",
+  "action": { "default_popup": "popup/popup.html" },
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    {
+      "matches": ["*://*.youtube.com/watch*"],
+      "js": ["content_scripts/extractor.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["*://*.youtube.com/watch*"],
+      "js": ["content_scripts/page_bridge.js"],
+      "world": "MAIN",
+      "run_at": "document_idle"
+    }
+  ],
+  "permissions": ["downloads"],
+  "host_permissions": ["*://*.youtube.com/*"]
+}
