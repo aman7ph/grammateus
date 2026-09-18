@@ -9,6 +9,7 @@
     {
       "matches": ["*://*.youtube.com/watch*"],
       "js": ["content_scripts/extractor.js"],
+      "world": "MAIN",
       "run_at": "document_idle"
     },
     {

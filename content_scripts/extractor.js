@@ -135,7 +135,7 @@ async function main() {
     // taking the first one in the list.
     const selectedTrack = captionTracks[0];
     const transcript = await fetchTranscriptJson(selectedTrack.baseUrl);
-
+    window.grammateusDebugTranscript = transcript;
     console.log("[Grammateus] Transcript fetched successfully:");
     console.log(JSON.stringify(transcript, null, 2));
   } catch (error) {
