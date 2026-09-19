@@ -1,8 +1,10 @@
 /**
  * extractor.js (ISOLATED world content script)
  *
- * Fetches a YouTube video's transcript by querying the InnerTube API
- * as the ANDROID client, then downloading the chosen caption track.
+ * Fetches a YouTube video's transcript on demand, when asked by the
+ * popup. Does nothing on its own at page load beyond registering a
+ * listener — no network activity happens until the user actually
+ * requests a transcript.
  *
  * WHY THE ANDROID CLIENT: YouTube's default WEB client now requires a
  * PoToken (proof-of-origin token) on caption requests. Without one, the
@@ -19,6 +21,12 @@
 const INNERTUBE_ANDROID_API_KEY = "AIzaSyA8eiZmM1FaDVjRy-df2KTyQ_vz_yYM39w";
 const INNERTUBE_PLAYER_ENDPOINT = "https://www.youtube.com/youtubei/v1/player";
 const INNERTUBE_ANDROID_CLIENT_VERSION = "20.10.38";
+
+// The message "action" the popup sends to request a transcript fetch.
+// Kept as a named constant so both sides of the message channel (this
+// file and popup.js) can reference the same value instead of retyping
+// a magic string that could drift out of sync.
+const ACTION_FETCH_TRANSCRIPT = "FETCH_TRANSCRIPT";
 
 /**
  * Reads the YouTube video ID out of the current tab's URL.
@@ -110,16 +118,24 @@ async function fetchTranscriptJson(captionTrackBaseUrl) {
 }
 
 /**
- * Entry point: fetches the transcript for the video on the current page
- * and logs it. Currently selects the first available caption track;
- * language/track selection will be exposed to the user later.
+ * Fetches the full transcript for the video on the current page.
+ *
+ * This is the actual work triggered by a popup request — it is never
+ * called automatically at page load. Currently selects the first
+ * available caption track; language/track selection will be exposed
+ * to the user later.
+ *
+ * @returns {Promise<{ transcript: object }>} on success.
+ * @returns {Promise<{ error: string }>} on failure — errors are
+ *   returned as data rather than thrown, since the caller
+ *   (the onMessage listener) needs a plain object to send back
+ *   over chrome.runtime messaging, not a thrown exception.
  */
-async function main() {
+async function fetchTranscriptForCurrentVideo() {
   const videoId = getCurrentVideoId();
 
   if (!videoId) {
-    console.error("[Grammateus] Could not find a video ID in the page URL.");
-    return;
+    return { error: "Could not find a video ID in the page URL." };
   }
 
   try {
@@ -127,20 +143,37 @@ async function main() {
     const captionTracks = extractCaptionTracks(playerResponse);
 
     if (!captionTracks) {
-      console.log("[Grammateus] This video has no caption tracks.");
-      return;
+      return { error: "This video has no caption tracks." };
     }
 
     // TODO: let the user choose a track/language instead of always
     // taking the first one in the list.
     const selectedTrack = captionTracks[0];
     const transcript = await fetchTranscriptJson(selectedTrack.baseUrl);
-    window.grammateusDebugTranscript = transcript;
-    console.log("[Grammateus] Transcript fetched successfully:");
-    console.log(JSON.stringify(transcript, null, 2));
+
+    return { transcript };
   } catch (error) {
-    console.error("[Grammateus] Failed to fetch transcript:", error);
+    return { error: error.message };
   }
 }
 
-main();
+/**
+ * Listens for a transcript request from the popup. Registering this
+ * listener costs nothing on its own — no network activity happens
+ * until a FETCH_TRANSCRIPT message actually arrives.
+ *
+ * Returns `true` to keep the message channel open: our actual work
+ * (fetchTranscriptForCurrentVideo) is asynchronous, so sendResponse()
+ * cannot be called before this listener function itself returns.
+ * Without `return true`, Chrome would close the channel immediately
+ * and the popup would never receive our response.
+ */
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action !== ACTION_FETCH_TRANSCRIPT) {
+    return false; // not for us; let other listeners (if any) handle it
+  }
+
+  fetchTranscriptForCurrentVideo().then((result) => sendResponse(result));
+
+  return true; // keep the channel open for the async response above
+});
