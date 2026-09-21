@@ -1,1 +1,81 @@
-<h1>Grammateus</h1>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Grammateus</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark">G</span>
+        <h1>Grammateus</h1>
+      </div>
+
+      <button
+        class="theme-toggle"
+        id="theme-toggle"
+        type="button"
+        aria-label="Toggle theme"
+        title="Toggle theme"
+      >
+        <span id="theme-icon" aria-hidden="true">☾</span>
+      </button>
+    </header>
+
+    <hr />
+
+    <main>
+      <section class="panel">
+        <div class="section-heading">
+          <span class="eyebrow">Export transcript</span>
+          <span class="hint">Choose a format</span>
+        </div>
+
+        <div class="format-options">
+          <label class="format-option">
+            <input type="radio" name="format" value="txt" checked />
+            <span class="format-card">
+              <strong>.txt</strong>
+              <small>Plain text</small>
+            </span>
+          </label>
+
+          <label class="format-option">
+            <input type="radio" name="format" value="md" />
+            <span class="format-card">
+              <strong>.md</strong>
+              <small>Markdown</small>
+            </span>
+          </label>
+
+          <label class="format-option">
+            <input type="radio" name="format" value="srt" />
+            <span class="format-card">
+              <strong>.srt</strong>
+              <small>Subtitles</small>
+            </span>
+          </label>
+        </div>
+
+        <label class="checkbox-row">
+          <input type="checkbox" id="timestamps" />
+          <span class="custom-checkbox"></span>
+          <span>Include timestamps</span>
+        </label>
+
+        <button class="download-button" id="download-btn" disabled>
+          <span>Download transcript</span>
+          <span aria-hidden="true">↓</span>
+        </button>
+
+        <div class="status" id="status" role="status"></div>
+      </section>
+    </main>
+
+    <script src="theme.js"></script>
+    <script src="../lib/format.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>

@@ -4,12 +4,11 @@
   "version": "0.1.0",
   "description": "Extracts and downloads YouTube video transcripts.",
   "action": { "default_popup": "popup/popup.html" },
-  "background": { "service_worker": "background.js" },
+  "background": { "service_worker": "background/background.js" },
   "content_scripts": [
     {
       "matches": ["*://*.youtube.com/watch*"],
       "js": ["content_scripts/extractor.js"],
-      "world": "MAIN",
       "run_at": "document_idle"
     },
     {
@@ -19,6 +18,6 @@
       "run_at": "document_idle"
     }
   ],
-  "permissions": ["downloads"],
+  "permissions": ["downloads", "tabs"],
   "host_permissions": ["*://*.youtube.com/*"]
 }
