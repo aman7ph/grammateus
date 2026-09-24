@@ -3,7 +3,19 @@
   "name": "Grammateus",
   "version": "0.1.0",
   "description": "Extracts and downloads YouTube video transcripts.",
-  "action": { "default_popup": "popup/popup.html" },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
   "content_scripts": [
     {
       "matches": ["*://*.youtube.com/watch*"],

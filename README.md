@@ -2,7 +2,7 @@
 
 Chrome extension that downloads YouTube transcripts as `.txt`, `.md`, or `.srt`.
 
-![popup](assets/screenshot-popup.png)
+![popup](assets/grammateus_light.png) ![popup](assets/grammateus_dark.png)
 
 ## Why
 
