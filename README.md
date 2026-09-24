@@ -4,6 +4,13 @@ Chrome extension that downloads YouTube transcripts as `.txt`, `.md`, or `.srt`.
 
 ![popup](assets/grammateus_light.png) ![popup](assets/grammateus_dark.png)
 
+<table>
+  <tr>
+    <td style="padding-right: 16px;"><img src="assets/grammateus_light.png" width="260" /></td>
+    <td style="padding-left: 16px;"><img src="assets/grammateus_dark.png" width="260" /></td>
+  </tr>
+</table>
+
 ## Why
 
 Most transcript downloaders out there are either paywalled or flaky. Built this instead.
