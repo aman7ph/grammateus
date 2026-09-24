@@ -43,11 +43,6 @@ grammateus/
 └── popup/                          # ui
 ```
 
-## Limitations
-
-- Always grabs the first caption track (no language picker yet)
-- Depends on an unofficial API, could break without notice
-
 ## License
 
 MIT. See [LICENSE](LICENSE).
