@@ -24,7 +24,7 @@ Not on the Web Store. Load it unpacked:
 
 Open a video, click the icon, pick a format, click download.
 
-![formats](assets/screenshot-formats.png)
+![formats](assets/grammateus.png)
 
 ## Formats
 
