@@ -3,9 +3,9 @@
 Chrome extension that downloads YouTube transcripts as `.txt`, `.md`, or `.srt`.
 
 <p align="center">
-  <img src="assets/grammateus_light.png" width="42%" />
-  <img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='2' height='260'><rect width='2' height='260' fill='%23888'/></svg>" width="2" />
-  <img src="assets/grammateus_dark.png" width="42%" />
+  <img src="assets/grammateus_light.png" width="45%" />
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="assets/grammateus_dark.png" width="45%" />
 </p>
 
 ## Why
