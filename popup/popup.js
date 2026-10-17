@@ -7,7 +7,7 @@
  * (extractor.js) for the transcript, formats it (via lib/format.js,
  * loaded separately in popup.html), and triggers a file download.
  *
- * No network requests happen from this file directly — all fetching is
+ * No network requests happen from this file directly. All fetching is
  * delegated to the content script over chrome.runtime messaging, since
  * this popup has no access to the YouTube page's own context.
  */
@@ -19,11 +19,14 @@ const ACTION_FETCH_TRANSCRIPT = "FETCH_TRANSCRIPT";
 // Any URL containing this substring is treated as a YouTube watch page.
 const YOUTUBE_WATCH_URL_FRAGMENT = "youtube.com/watch";
 
+// Used when a video has no usable title to build a filename from.
+const FALLBACK_FILENAME = "transcript";
+
 // One converter per export format, each taking the transcript's
 // "events" array and returning a ready-to-download string. toSRT()
 // doesn't take an options object (SRT timestamps aren't optional), so
 // it's wrapped here just to give every entry a uniform two-argument
-// call signature — callers below never need to know which formats
+// call signature. Callers below never need to know which formats
 // actually use their second argument.
 const FORMAT_CONVERTERS = {
   txt: (events, options) => toPlainText(events, options),
@@ -46,8 +49,32 @@ const downloadButton = document.getElementById("download-btn");
 const includeTimestampsCheckbox = document.getElementById("timestamps");
 const statusMessageEl = document.getElementById("status");
 
+// blob URL -> the filename we want for that download. Consulted by the
+// single onDeterminingFilename listener registered below.
+const pendingFilenames = new Map();
+
 /**
- * True if the given tab URL looks like a YouTube watch page — i.e.
+ * Chrome ignores the `filename` passed to downloads.download() whenever
+ * any installed extension (IDM and other download managers) has an
+ * onDeterminingFilename listener; the download then falls back to the
+ * blob URL's UUID. Answering the filename question ourselves avoids that.
+ * If another extension also overrides the name, Chrome lets the most
+ * recently installed one win, which we can't control.
+ *
+ * Only one listener may be registered per extension, so this is global
+ * and keyed by URL rather than added per download.
+ */
+chrome.downloads.onDeterminingFilename.addListener((downloadItem, suggest) => {
+  const filename = pendingFilenames.get(downloadItem.url);
+  if (!filename) {
+    return; // not our download; Chrome calls suggest() for us
+  }
+  pendingFilenames.delete(downloadItem.url);
+  suggest({ filename, conflictAction: "uniquify" });
+});
+
+/**
+ * True if the given tab URL looks like a YouTube watch page, i.e.
  * one that extractor.js is actually injected into and can respond on.
  *
  * @param {string|undefined} url
@@ -74,12 +101,32 @@ function getActiveTab() {
 }
 
 /**
+ * Ensures extractor.js is loaded and its listener registered on the
+ * given tab, regardless of whether the tab's original page-load
+ * already had it injected. This guards against the case where the
+ * extension was reloaded (e.g. during development, or an update)
+ * while a matching tab was already open. Chrome does not retroactively
+ * re-run content_scripts into tabs that predate the reload, which
+ * otherwise leaves no listener there to receive messages at all.
+ *
+ * Safe to call on every click: extractor.js wraps itself in a guard
+ * and does nothing if it has already run on the page.
+ *
+ * @param {number} tabId
+ */
+async function ensureExtractorInjected(tabId) {
+  await chrome.scripting.executeScript({
+    target: { tabId },
+    files: ["content_scripts/extractor.js"],
+  });
+}
+
+/**
  * Asks the content script on the given tab to fetch the current
  * video's transcript, resolving with its response.
  *
  * Wrapped as a Promise for the same reason as getActiveTab(). Also
- * guards against the case where no content script is listening at all
- * (e.g. the tab was closed, or the content script failed to load) —
+ * guards against the case where no content script is listening at all.
  * chrome.runtime.lastError is set instead of a response arriving, and
  * without this check that shows up as a confusing crash deep inside
  * whatever tries to read a property off an undefined response.
@@ -109,7 +156,8 @@ function requestTranscriptFromTab(tabId) {
 /**
  * Removes characters that are illegal (or risky) in filenames on
  * common operating systems, replacing them with a hyphen, and trims
- * stray whitespace left over at the edges.
+ * stray whitespace left over at the edges. Falls back to a generic
+ * name if nothing usable remains.
  *
  * Illegal set covers Windows' restrictions specifically, since that's
  * the strictest common case: / \ : * ? " < > |
@@ -118,12 +166,17 @@ function requestTranscriptFromTab(tabId) {
  * @returns {string}
  */
 function sanitizeFilename(title) {
-  return title.replace(/[/\\:*?"<>|]/g, "-").trim();
+  const cleaned = (title ?? "").replace(/[/\\:*?"<>|]/g, "-").trim();
+  return cleaned || FALLBACK_FILENAME;
 }
 
 /**
  * Triggers a browser download of the given text as a file, tagging it
  * with the MIME type appropriate for the requested format.
+ *
+ * The filename is registered in pendingFilenames so the global
+ * onDeterminingFilename listener can claim it. See the comment on that
+ * listener for why passing `filename` to download() alone isn't enough.
  *
  * @param {string} text - the file's full contents.
  * @param {string} filename - the suggested filename, including extension.
@@ -134,12 +187,21 @@ function downloadTranscriptAsFile(text, filename, format) {
   const blob = new Blob([text], { type: mimeType });
   const objectUrl = URL.createObjectURL(blob);
 
-  chrome.downloads.download({ url: objectUrl, filename }, () => {
-    // The object URL only needs to live long enough for the download
-    // API to read from it; release it once that call has completed
-    // rather than leaking it for the rest of the popup's lifetime.
-    URL.revokeObjectURL(objectUrl);
-  });
+  pendingFilenames.set(objectUrl, filename);
+
+  chrome.downloads.download(
+    { url: objectUrl, filename, conflictAction: "uniquify" },
+    () => {
+      if (chrome.runtime.lastError) {
+        pendingFilenames.delete(objectUrl);
+        statusMessageEl.textContent = "Download failed. Try again.";
+      }
+      // The object URL only needs to live long enough for the download
+      // API to read from it; release it rather than leaking it for the
+      // rest of the popup's lifetime.
+      URL.revokeObjectURL(objectUrl);
+    },
+  );
 }
 
 /**
@@ -155,7 +217,7 @@ function readSelectedExportOptions() {
 
 /**
  * Enables the Download button only when the active tab is a YouTube
- * watch page — i.e. one extractor.js is actually able to respond on.
+ * watch page, i.e. one extractor.js is actually able to respond on.
  * Runs once when the popup opens.
  */
 async function initializeAvailability() {
@@ -167,27 +229,6 @@ async function initializeAvailability() {
   }
 
   downloadButton.disabled = false;
-}
-
-/**
- * Ensures extractor.js is loaded and its listener registered on the
- * given tab, regardless of whether the tab's original page-load
- * already had it injected. This guards against the case where the
- * extension was reloaded (e.g. during development, or an update)
- * while a matching tab was already open — Chrome does not retroactively
- * re-run content_scripts into tabs that predate the reload, which
- * otherwise leaves no listener there to receive messages at all.
- *
- * Safe to call on every click: extractor.js guards its own listener
- * registration against being added more than once per page.
- *
- * @param {number} tabId
- */
-async function ensureExtractorInjected(tabId) {
-  await chrome.scripting.executeScript({
-    target: { tabId },
-    files: ["content_scripts/extractor.js"],
-  });
 }
 
 /**
@@ -221,7 +262,14 @@ async function handleDownloadClick() {
 
   statusMessageEl.textContent = "Fetching transcript…";
 
-  await ensureExtractorInjected(activeTab.id);
+  try {
+    await ensureExtractorInjected(activeTab.id);
+  } catch (error) {
+    statusMessageEl.textContent =
+      "Couldn't load the transcript reader on this page. Try reloading the tab.";
+    return;
+  }
+
   const response = await requestTranscriptFromTab(activeTab.id);
 
   if (!response || response.error) {

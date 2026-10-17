@@ -37,6 +37,12 @@ YouTube gates caption URLs behind a PoToken now (empty response otherwise). Work
 
 Content script only runs when you click download, not on every video load. Re-injects itself each time since Chrome doesn't re-inject content scripts into tabs that were already open when the extension reloads.
 
+## Limitations
+
+- Always grabs the first caption track (no language picker yet)
+- Depends on an unofficial API, could break without notice
+- Another extension that actively renames downloads can still override the saved filename
+
 ## Structure
 
 ```
